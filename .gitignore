@@ -1,0 +1,9 @@
+# Untracked files
+# VIM backup files
+*~
+# VIM Swap files (while editing)
+*.swp
+# exe files - built executables.
+*.exe
+# ignore the Doxygen generated HTML
+html/
