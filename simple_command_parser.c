@@ -2,49 +2,24 @@
  * \file
  *
  * \brief Simple command line parser.
- *
- * This program reads input from the keyboard. When the return key is read,
- * the string input is parsed for simple commands.
- *
- * \mainpage Simple Command Line Parser.
- * 
- * \par Parses simple commands, as defined in a template structure.
- *
- * -# Commands can be full e.g. 'READ_PIN' or abbreviated 'RP'.
- * -# Parsing is case insensative.
- * -# Commands can have parameters which are either Char strings or decimal
- *    numbers.
  */
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <assert.h>
 
-
-/** 
- * \typedef (*cmd_func_t)(int argc, char *argv[])
- *
- * \brief Function pointer for command functions. 
- *
- * The first param is 'argc' which is always a count of the number of
- * arguments. All parameters MUST be integer
- *
- */
-typedef int (*cmd_func_t)(int argc, char *argv[]);
+#include "simple_command_parser.h"
 
 /**
- * \struct _command_t
- *
- * \brief Structure for defining commands read from the command line.
- *
+ * Maximum size of the input command string
  */
-struct _command_t{
-    const char command_str[11];     /**< Command name */
-    const char abbrev_str[4];       /**< Appreviated command name */
-    const char help_str[41];        /**< Command help description */
-    int min_arg;                    /**< Minimum number of arguments */
-    int max_arg;                    /**< Maximum number of arguments */
-    cmd_func_t func;                /**< Function called for the command */
-};
+#define MAX_INPUT_BUFFER    128
+
+/**
+ * Maximum number of arguments a command can have
+ */
+#define MAX_ARGC            6
 
 /**
  * \typedef command_t
@@ -55,104 +30,225 @@ struct _command_t{
 typedef struct _command_t command_t;
 
 /**
- * \brief Addition Function
+ * \struct _command_t
  *
- * Treats all arguments as integers. Sums all arguments together.
+ * \brief Structure for defining commands to read from the command line.
  *
- * \param   argc    Count of argv parameters.
- * \param   argv    Char* array of argument strings.   
- *
- * \return  The result of the addition sum operation.
  */
-static int add_cmd_func(int argc, char *argv[]) 
-{
-    int idx;
-    int result = 0;
+struct _command_t{
+    /** Command name string. */
+    const char          *cmd_str;
+    /** Abbreviated command name string. */
+    const char          *abbr_str;
+    /** Command help description */
+    const char          *help_str;
+    /** Minimum number of arguments */
+    int                 min_arg;
+    /** Maximum number of arguments */
+    int                 max_arg;
+    /** Function called for the command */
+    cmd_func_t          func;
+    /** Next command_t node */
+    command_t           *next;
+};
 
-    for (idx=0; idx < argc; idx++)
-    {
-        result += atoi( argv[idx] );
-    }
-
-    return result;
-}
 
 /**
- * \var add_cmd
- * 
- * \brief static command description for the Addition function.
+ * \struct _list_t
+ *
+ * \brief List for storing all command nodes.
  */
-static command_t add_cmd = {
-    "add", 
-    "a", 
-    "Add up to five integers.",
-    2, 
-    5, 
-    &add_cmd_func
+struct _list_t {
+    command_t           *head;
+    int                 size;
 };
 
 /**
- * \brief Subtract Function
- *
- * Treats all arguments as integers. Subtracts all subsquent integar arguments
- * from the first integer argument.
- *
- * \param   argc    Count of argv parameters.
- * \param   argv    Char* array of argument strings.   
- *
- * \return  The result of the subtraction operation.
+ * \typedef list_t
  */
-static int sub_cmd_func(int argc, char *argv[]) 
-{
-    int idx;
-    int result = 0;
+typedef struct _list_t list_t;
 
-    if (argc >= 1) 
+/**
+ * \var cmd_list
+ *
+ * List of all commands defined for the parser.
+ *
+ * As a static, this will initialise to NULL and 0.
+ */
+static list_t cmd_list;
+
+/**
+ * \var end_parsing
+ *
+ * Flag for the main parse loop. Set to 1 to exit the parse loop.
+ * See the build-in 'end' command function - end_cmd_func().
+ */
+static int end_parsing;
+
+
+/**
+ * \brief Help command, which is added to the command parser by default.
+ *
+ * Lists all the commands that have been added to the parser.
+ *
+ * \param argc      ignored.
+ * \param argv      ignored.
+ *
+ * \returns         0
+ */
+static int help_cmd_func(int argc, char *argv[])
+{
+    command_t *cmd_ptr;
+
+    printf("\n%-11s  %-5s  %-61s\n", "COMMAND", "ABBR", "DESCRIPTION");
+
+    for (cmd_ptr=cmd_list.head; cmd_ptr; cmd_ptr=cmd_ptr->next)
     {
-        result = atoi(argv[0]);
-        for (idx=1; idx < argc; idx++)
+        printf(" %-11s  %-5s  %-61s\n",
+            cmd_ptr->cmd_str,
+            cmd_ptr->abbr_str,
+            cmd_ptr->help_str
+            );
+    }
+    printf ("\n");
+
+    return 1;
+}
+
+
+/**
+ * \brief End command.
+ *
+ * Causes the parser to exit its read loop.
+ *
+ * \param argc      ignored.
+ * \param argv      ignored.
+ *
+ * \returns         1
+ */
+static int end_cmd_func(int argc, char *argv[])
+{
+    end_parsing = 1;
+    return 1;
+}
+
+
+/**
+ * \brief Allocates and populates a new command node.
+ *
+ * Parameters are as for scp_add_command().
+ *
+ * \returns a new command_t node.
+ */
+static command_t *new_command(
+         const char*    cmd_str,
+         const char*    abbr_str,
+         const char*    help_str,
+         int            min_arg,
+         int            max_arg,
+         cmd_func_t     func
+         )
+{
+    command_t *new_cmd = (command_t *)malloc(sizeof(command_t));
+    assert(new_cmd);
+
+    new_cmd->cmd_str    = cmd_str;
+    new_cmd->abbr_str   = abbr_str;
+    new_cmd->help_str   = help_str;
+    new_cmd->min_arg    = min_arg;
+    new_cmd->max_arg    = max_arg;
+    new_cmd->func       = func;
+    new_cmd->next       = NULL;
+
+    return new_cmd;
+}
+
+
+/*
+ * Initialise the command list by adding the default help command, and
+ * the end command, unless the 'do_not_exit' flag is set.
+ */
+void scp_init(int do_not_exit)
+{
+
+    /* Make sure we are not re-initialising */
+    assert(cmd_list.head == NULL);
+
+    /* Add the help command */
+    {
+        command_t *help_cmd = new_command(
+            "help",
+            "h",
+            "Lists all commands available.",
+            0,
+            0,
+            help_cmd_func
+            );
+
+        cmd_list.head = help_cmd;
+        cmd_list.size++;
+
+        /* By default, also add the 'end' command. */
+        if (!do_not_exit)
         {
-            result -= atoi(argv[idx]);
+            command_t *end_cmd = new_command(
+                "end",
+                "end",
+                "Exit the parser.",
+                0,
+                0,
+                end_cmd_func
+                );
+
+            help_cmd->next = end_cmd;
+            cmd_list.size++;
         }
     }
-    return result;
 }
 
-/**
- * \var sub_cmd
- * 
- * \brief static command description for the subtraction function.
+
+/*
+ * scp_add_command - adds a new command to the command list.
  */
-static command_t sub_cmd = { 
-    "sub",
-    "s",
-    "Subtract p2 from p1.",
-    2, 
-    2, 
-    &sub_cmd_func };
+ void scp_add_command(
+         const char*    cmd_str,
+         const char*    abbr_str,
+         const char*    help_str,
+         int            min_arg,
+         int            max_arg,
+         cmd_func_t     func
+         )
+{
+    command_t *new_cmd;
+    command_t *cmd_ptr = cmd_list.head;
+
+    /* Validate scp has been initialised */
+    assert(cmd_list.head);
+
+    /* Validate inputs. */
+    assert(cmd_str);
+    /* abbr_str can be NULL */
+    assert(help_str);
+    assert(min_arg <= max_arg);
+    assert(func);
+
+    /* Validate strings are not too long. */
+    assert(strlen(cmd_str) < MAX_CMD_STR);
+    assert(strlen(abbr_str) < MAX_ABBR_STR);
+    assert(strlen(help_str) < MAX_HELP_STR);
+
+    /* Create a new command node. */
+    new_cmd = new_command(cmd_str, abbr_str, help_str, min_arg, max_arg, func);
+
+    /* Add it to the end of the command list */
+    for (cmd_ptr=cmd_list.head; cmd_ptr->next; cmd_ptr = cmd_ptr->next);
+    cmd_ptr->next = new_cmd;
+    cmd_list.size++;
+}
 
 
 /**
- * \var commands
- *
- * \brief A list of all the commands that the parser should handle.
- */
-static command_t *commands[] = {
-    &add_cmd,
-    &sub_cmd
-};
-
-/**
- * \var command_num
- * 
- * \brief the number of parsed commands.
- *
- * Calculated from the size of the commands list.
- */
-const int command_num = (int)(sizeof(commands)/sizeof(command_t *));
-
-/**
- * \brief Reads keyboard input until [return] is pressed. 
+ * \brief Reads keyboard input until [return] is pressed.
  *
  * Reads the keyboard input. Outputs the key pressed and also
  * handles [backspace] for simple editing BUT NOT ANY OTHERS.
@@ -162,18 +258,18 @@ const int command_num = (int)(sizeof(commands)/sizeof(command_t *));
  *                      returns immediately.
  *
  * \return  The number of char actually read.
- */ 
-int input(char *in_buffer, int len) 
+ */
+static int input(char *in_buffer, int len)
 {
     char *ptr = in_buffer;
     char *max = in_buffer + len;
 
-    /* Read the keyboard until return or len char are read. */
+    /* Read the keyboard until return or max char are read. */
     while ( (*ptr = getch()) != '\r' && ptr < max)
     {
         /* A backspace deletes the previous character */
         if (*ptr == '\b' || (int)*ptr == 127)
-        { 
+        {
             if (ptr > in_buffer)
             {
                 --ptr;
@@ -196,45 +292,41 @@ int input(char *in_buffer, int len)
  * /brief Search for matching command function.
  *
  * Search the list of 'command_t' structures for the one that matches
- * either the command_str or abbrev_str.
+ * either the cmd_str or abbr_str (if defined). Simple linear search.
  *
  * \param   name    Command name to search for.
- * 
+ *
  * \return  The cmd_func_t function pointer for that command or NULL if the
  *          command wasn't found.
  */
 static command_t *find_command(const char *name)
 {
-    int idx;
-    
-    for (idx=0; idx < command_num; idx++)
+    command_t *cmd_ptr;
+
+    for (cmd_ptr=cmd_list.head; cmd_ptr; cmd_ptr = cmd_ptr->next)
     {
         if (
-                strcmp(name, commands[idx]->command_str) == 0 ||
-                strcmp(name, commands[idx]->abbrev_str) == 0
+                strcmp(name, cmd_ptr->cmd_str) == 0 ||
+                (
+                    cmd_ptr->abbr_str &&
+                    strcmp(name, cmd_ptr->abbr_str) == 0
+                )
            )
         {
-            return  commands[idx];
+            return  cmd_ptr;
         }
     }
     return NULL;
 }
 
+
 /**
- * Main function
- *
- *  Prompt for command line input and then process the command to see if it
- *  is one of the defined 'commands'. Currently supports commands
- *      -# add - adds together 2 to 5 integers
- *      -# sub - subtract second integer from first.
- *      -# end - exit this program.
- *
- * \return 0
+ * scp_parse function.
  */
-int main(void)
+void scp_parse(void)
 {
-    char strbuff[256];
-    char *argv[5];
+    char strbuff[MAX_INPUT_BUFFER];
+    char *argv[MAX_ARGC];
     int argc = 0;
     int length;
     int idx;
@@ -242,68 +334,63 @@ int main(void)
     char *token;
     command_t *command;
 
-    printf ("Simple Command Parser\n\n");
+    /* Call the built-in 'help' command to display the commands already
+     * added to the parser.
+     */
+    help_cmd_func(0, NULL);
 
-    printf("  %-11s %-5s args(max)  Description\n", "Command", "Abbr");
-    for (idx=0; idx < command_num; idx++) 
+    /* While the 'end_parsing' flag is not set, keep parsing command.
+     * This flag can be set be the 'end' command - if it is enabled.
+     */
+    while (end_parsing == 0)
     {
-        printf("  %-11s %-4s  %d(%d)        %s \n",
-            commands[idx]->command_str,
-            commands[idx]->abbrev_str,
-            commands[idx]->min_arg,
-            commands[idx]->max_arg,
-            commands[idx]->help_str
-            );
-    }
-    printf ("  end\n\n");
-
-    while (1)
-    {
-        printf("Command[%3d]> ", count);
-        length = input(strbuff, 256);
+        printf("In [%d]> ", count);
+        length = input(strbuff, MAX_INPUT_BUFFER);
         printf("\n");
+
+        /* If the input is empty (string size 0) then continue. */
+        if (length == 0)
+            continue;
 
         token = strtok(strbuff, " .,");
 
-        /* Is this a command we recognise? */
-        if (strcmp( token, "end") == 0)
-            break;
-
-        else if ( (command = find_command(token)) != NULL)
+        if ( (command = find_command(token)) != NULL)
         {
             argc = 0;
-            while ( (token = strtok( NULL, " .,")) != NULL)
+            while (
+                    (token = strtok( NULL, " .,")) != NULL &&
+                    argc < MAX_ARGC
+                  )
             {
                 argv[argc++] = token;
             }
 
             if (argc < command->min_arg)
             {
-                printf("Output [%3d]> ERROR: too few args (less than %d)!",
+                printf("Out[%d]> ERROR: [%s] too few args (less than %d)!",
                         count,
+                        command->cmd_str,
                         command->min_arg
                       );
-            } 
+            }
             else if (argc > command->max_arg)
             {
-                printf("Output [%3d]> ERROR: too many args (more than %d)!",
+                printf("Out[%d]> ERROR: [%s] too many args (more than %d)!",
                         count,
-                        command->min_arg
+                        command->cmd_str,
+                        command->max_arg
                       );
             }
             else {
-                printf("Output [%3d]> %d", count, (*command->func)(argc, argv));
+                printf("Out[%d]> %d", count, (*command->func)(argc, argv));
             }
         }
-        else 
+        else
         {
-            printf("Output [%3d]> Unknown Command: %s", count, token);
+            printf("Out[%d]> Unknown Command: %s", count, token);
         }
         printf ("\n");
         ++count;
-
     }
-
-    return 0;
 }
 
