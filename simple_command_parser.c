@@ -24,7 +24,7 @@
 /**
  * \typedef command_t
  *
- * \brief Typedef of the #_command_t struct.
+ * \brief Typedef of the _command_t struct.
  *
  */
 typedef struct _command_t command_t;
@@ -56,7 +56,7 @@ struct _command_t{
 /**
  * \struct _list_t
  *
- * \brief List for storing all command nodes.
+ * List structure for storing all command nodes.
  */
 struct _list_t {
     command_t           *head;
@@ -65,6 +65,8 @@ struct _list_t {
 
 /**
  * \typedef list_t
+ *
+ * Command node list type.
  */
 typedef struct _list_t list_t;
 

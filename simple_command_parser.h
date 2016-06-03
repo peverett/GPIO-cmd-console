@@ -66,7 +66,7 @@ void scp_init(int do_not_exit);
  *                      This cannot exceed #MAX_HELP_STR in length.
  * \param   min_arg     Minimum number of args expected - used for validation.
  * \param   max_arg     Maximum number of args expected.
- * \param   cmd_func    Function pointer using the #cmd_func_t type for the
+ * \param   func        Function pointer using the #cmd_func_t type for the
  *                      function to be called when the command is parsed.
  */
  void scp_add_command(
@@ -87,4 +87,134 @@ void scp_init(int do_not_exit);
  *
  */
 void scp_parse(void);
+
+/**
+ * \mainpage Simple Command Parser
+ *
+ * \section Purpose
+ *
+ * This module provides a very simple and compact command line parser, suitable
+ * for embedded applications that provide a simple serial interface e.g. 
+ * Arduino.
+ *
+ * \section Implementation
+ *
+ * To specify your own commands for the parser and then run the parser to
+ * execute them, follow these steps:
+ *
+ * -# Implement your own command functions. They must use the #cmd_func_t
+ *    function prototype.
+ * -# Call scp_init() to initialise the parser. You can configure the parser
+ *    to exit when the 'end' command is entered or not. The parser has one
+ *    other command function already defined, 'help' which lists all the 
+ *    commands it has been configured with.
+ * -# Call scp_add_command() to add your own defined command functions.
+ * -# Call scp_parse() to start the input and command parsing loop.
+ *
+ * \section Example
+ *
+ * The following code will produce a simple parser with two commands:
+ * -# add - adds parameters together.
+ * -# sub - subtracts the second parameter from the first parameter.
+ *
+ * The parser adds two commands by default:
+ * -# help - displays all defined commands.
+ * -# end  - exits the parser (if enabled by flag in scp_init()).
+ *
+ * \code {c}
+
+#include <stdio.h>
+#include "simple_command_parser.h"
+
+static int add_cmd_func(int argc, char *argv[])
+{
+    int idx;
+    int result = 0;
+
+    for (idx=0; idx < argc; idx++)
+    {
+        result += atoi( argv[idx] );
+    }
+
+    return result;
+}
+
+static int sub_cmd_func(int argc, char *argv[])
+{
+    int idx;
+    int result = 0;
+
+    if (argc >= 1)
+    {
+        result = atoi(argv[0]);
+        for (idx=1; idx < argc; idx++)
+        {
+            result -= atoi(argv[idx]);
+        }
+    }
+    return result;
+}
+
+int main(void)
+{
+    scp_init(0);
+
+    scp_add_command(
+            "add",
+            "a",
+            "Add <P1> to <P2> [... to <P5>]",
+            2,
+            5,
+            add_cmd_func
+            );
+
+    scp_add_command(
+            "sub",
+            "s",
+            "Subtract <P2> from <P1>",
+            2,
+            2,
+            sub_cmd_func
+            );
+
+    printf ("Simple Command Parser\n");
+    scp_parse();
+
+    return 0;
+}
+
+ * \endcode
+ *
+ * \section Output
+ *
+ * \code{txt}
+ *
+>parser_example
+Simple Command Parser
+
+COMMAND      ABBR   DESCRIPTION
+ help         h      Lists all commands available.
+ end          end    Exit the parser.
+ add          a      Add <P1> to <P2> [... to <P5>]
+ sub          s      Subtract <P2> from <P1>
+
+In [1]> add 2 2 2 2
+Out[1]> 8
+In [2]> sub 99 44
+Out[2]> 55
+In [3]> help
+
+COMMAND      ABBR   DESCRIPTION
+ help         h      Lists all commands available.
+ end          end    Exit the parser.
+ add          a      Add <P1> to <P2> [... to <P5>]
+ sub          s      Subtract <P2> from <P1>
+
+Out[3]> 1
+In [4]> end
+Out[4]> 1
+
+ * \endcode
+ */
+
 
