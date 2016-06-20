@@ -1,7 +1,9 @@
 .SECONDARY: %.o
 .PHONY: all clean
 
-CC=GCC
+ifeq ($(OS),Windows_NT)
+    CC=GCC
+endif
 
 all: parser_example
 

@@ -5,5 +5,7 @@
 *.swp
 # exe files - built executables.
 *.exe
+# Linux executable
+parser_example
 # ignore the Doxygen generated HTML
 html/

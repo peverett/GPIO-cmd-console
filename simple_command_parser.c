@@ -11,6 +11,22 @@
 
 #include "simple_command_parser.h"
 
+/*
+ * Multiplatform support for putch/putchar and getch/getchar
+ */
+#ifdef __MINGW32__
+    #define PUTCH putch
+    #define GETCH getch
+#endif
+#ifdef __linux__
+    #define PUTCH putchar
+    #define GETCH getchar
+#endif
+
+#if !defined(GETCH) || !defined(PUTCH)
+#error "No PUTCH/GETCH definition for this platform!"
+#endif
+
 /**
  * Maximum size of the input command string
  */
@@ -267,7 +283,7 @@ static int input(char *in_buffer, int len)
     char *max = in_buffer + len;
 
     /* Read the keyboard until return or max char are read. */
-    while ( (*ptr = getch()) != '\r' && ptr < max)
+    while ( (*ptr = GETCH()) != '\r' &&  *ptr != '\n' && ptr < max)
     {
         /* A backspace deletes the previous character */
         if (*ptr == '\b' || (int)*ptr == 127)
@@ -281,7 +297,7 @@ static int input(char *in_buffer, int len)
         }
         else
         {
-            putch(*ptr++);
+            PUTCH(*ptr++);
         }
     }
     /* Replace the last read character with a 0 to terminate the string. */
