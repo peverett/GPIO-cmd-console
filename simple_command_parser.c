@@ -18,13 +18,39 @@
     #define PUTCH putch
     #define GETCH getch
 #endif
-#ifdef __linux__
+#if defined(__linux__) || defined(__SAML21J18A__)
     #define PUTCH putchar
     #define GETCH getchar
 #endif
 
 #if !defined(GETCH) || !defined(PUTCH)
-#error "No PUTCH/GETCH definition for this platform!"
+    #error "No PUTCH/GETCH definition for this platform!"
+#endif
+
+/* The [Enter] or [Return] character is '\n' on Linux and '\r' elsewhere. */
+#ifdef __linux__
+    #define RETURN '\n'
+#else
+    #define RETURN '\r'
+#endif
+
+/*
+ * In a serial terminal, both \r and \n are required, e.g. on the SAML21.
+ *
+ * The C preprocessor concatenates two string literals next to each other, 
+ * for example:
+ *      "Hello, World!"NL
+ *
+ * Expands to...
+ *      "Hello, World!""\n"
+ *
+ * Which is concatenated to...
+ *      "Hello, World!\n"
+ */
+#ifdef __SAML21J18A__
+    #define NL "\r\n"
+#else
+    #define NL "\n"
 #endif
 
 /**
@@ -118,17 +144,17 @@ static int help_cmd_func(int argc, char *argv[])
 {
     command_t *cmd_ptr;
 
-    printf("\n%-11s  %-5s  %-61s\n", "COMMAND", "ABBR", "DESCRIPTION");
+    printf(NL"%-11s  %-5s  %-61s"NL, "COMMAND", "ABBR", "DESCRIPTION");
 
     for (cmd_ptr=cmd_list.head; cmd_ptr; cmd_ptr=cmd_ptr->next)
     {
-        printf(" %-11s  %-5s  %-61s\n",
+        printf(" %-11s  %-5s  %-61s"NL,
             cmd_ptr->cmd_str,
             cmd_ptr->abbr_str,
             cmd_ptr->help_str
             );
     }
-    printf ("\n");
+    printf(NL);
 
     return 1;
 }
@@ -283,7 +309,7 @@ static int input(char *in_buffer, int len)
     char *max = in_buffer + len;
 
     /* Read the keyboard until return or max char are read. */
-    while ( (*ptr = GETCH()) != '\r' &&  *ptr != '\n' && ptr < max)
+    while ( (*ptr = GETCH()) != RETURN && ptr < max)
     {
         /* A backspace deletes the previous character */
         if (*ptr == '\b' || (int)*ptr == 127)
@@ -364,7 +390,7 @@ void scp_parse(void)
     {
         printf("In [%d]> ", count);
         length = input(strbuff, MAX_INPUT_BUFFER);
-        printf("\n");
+        printf(NL);
 
         /* If the input is empty (string size 0) then continue. */
         if (length == 0)
@@ -407,7 +433,7 @@ void scp_parse(void)
         {
             printf("Out[%d]> Unknown Command: %s", count, token);
         }
-        printf ("\n");
+        printf (NL);
         ++count;
     }
 }
