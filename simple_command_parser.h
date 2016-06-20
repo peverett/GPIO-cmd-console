@@ -3,20 +3,23 @@
  *
  * \brief Simple command line parser.
  *
- * Provides a very simple command line parser. Provides two build in 'commands'
+ * Provides a very simple command line parser. Provides two built in 'commands'
  * -# help - which lists all the commands supported.
  * -# end - which exits the parser loop.
  */
 
+#ifndef SIMPLE_COMMAND_PARSER_H_
+#define SIMPLE_COMMAND_PARSER_H_
+
 /**
  * The maximum command string length including terminating 0.
  */
-#define MAX_CMD_STR 11
+#define MAX_CMD_STR 21
 
 /**
  * The maximum command abbreviation string length including terminating 0.
  */
-#define MAX_ABBR_STR 5
+#define MAX_ABBR_STR 9
 
 /**
  * The maximum command help string length including terminating 0.
@@ -80,7 +83,7 @@ void scp_init(int do_not_exit);
 
 
  /**
- * \brief Run the comamnd line parser.
+ * \brief Run the command line parser.
  *
  * This function will loop until the 'end' command is entered, unless the
  * 'end' command has been disabled - see scp_init().
@@ -217,4 +220,4 @@ Out[4]> 1
  * \endcode
  */
 
-
+#endif /* SIMPLE_COMMAND_PARSER_H_ */

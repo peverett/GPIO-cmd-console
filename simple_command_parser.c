@@ -83,7 +83,7 @@ static list_t cmd_list;
  * \var end_parsing
  *
  * Flag for the main parse loop. Set to 1 to exit the parse loop.
- * See the build-in 'end' command function - end_cmd_func().
+ * See the built-in 'end' command function - end_cmd_func().
  */
 static int end_parsing;
 
@@ -275,6 +275,7 @@ static int input(char *in_buffer, int len)
             if (ptr > in_buffer)
             {
                 --ptr;
+                /* Backspace, print space over the char, backspace again. */
                 printf("\b \b");
             }
         }
@@ -331,7 +332,6 @@ void scp_parse(void)
     char *argv[MAX_ARGC];
     int argc = 0;
     int length;
-    int idx;
     int count = 1;
     char *token;
     command_t *command;
@@ -341,7 +341,7 @@ void scp_parse(void)
      */
     help_cmd_func(0, NULL);
 
-    /* While the 'end_parsing' flag is not set, keep parsing command.
+    /* While the 'end_parsing' flag is not set, keep parsing commands.
      * This flag can be set be the 'end' command - if it is enabled.
      */
     while (end_parsing == 0)
